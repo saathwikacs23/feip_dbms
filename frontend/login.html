@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Environmental Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #F7F7F7;
+            --surface-color: #FFFFFF;
+            --text-main: #111111;
+            --text-secondary: #666666;
+            --accent-color: #00CC66;
+            --error-color: #FF3D00;
+            --mono-font: 'JetBrains Mono', monospace;
+            --sans-font: 'Inter', sans-serif;
+            --easing: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 30%, #000000 100%);
+            color: var(--text-main);
+            font-family: var(--sans-font);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            padding: 48px;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: var(--text-main);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .role-btn {
+            padding: 20px;
+            border: 2px solid #E0E0E0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .role-btn:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,204,102,0.2);
+        }
+
+        .role-btn h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .role-btn p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #E0E0E0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #00b359;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .message.success {
+            background: #E8F5E9;
+            color: #1B5E20;
+            border: 1px solid #4CAF50;
+            display: block;
+        }
+
+        .message.error {
+            background: #FFEBEE;
+            color: #B71C1C;
+            border: 1px solid #F44336;
+            display: block;
+        }
+
+        .back-btn {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            color: var(--accent-color);
+        }
+
+        .link-btn {
+            color: var(--accent-color);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .db-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .db-card {
+            padding: 16px;
+            border: 2px solid #E0E0E0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .db-card:hover {
+            border-color: var(--accent-color);
+            transform: scale(1.02);
+        }
+
+        .db-card.selected {
+            border-color: var(--accent-color);
+            background: #E8F5E9;
+        }
+
+        .db-card h4 {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .db-card p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .icon {
+            font-size: 2rem;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ROLE SELECTION -->
+        <div id="roleSelection">
+            <h1 class="title">Welcome</h1>
+            <p class="subtitle">Select your role to continue</p>
+            
+            <div class="role-grid">
+                <button class="role-btn" onclick="selectRole('researcher')">
+                    <h3>🔬 Researcher</h3>
+                    <p>Query and analyze environmental data</p>
+                </button>
+                
+                <button class="role-btn" onclick="selectRole('dataprovider')">
+                    <h3>📊 Data Provider</h3>
+                    <p>Contribute and manage database records</p>
+                </button>
+                
+                <button class="role-btn" onclick="selectRole('admin')">
+                    <h3>⚙️ Administrator</h3>
+                    <p>System management and oversight</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- RESEARCHER LOGIN -->
+        <div id="researcherLogin" class="hidden">
+            <span class="back-btn" onclick="showRoleSelection()">← Back</span>
+            <h1 class="title">Researcher Login</h1>
+            <p class="subtitle">Access environmental data analysis</p>
+            
+            <div id="researcherMessage" class="message"></div>
+            
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="researcherEmail" placeholder="Your username">
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="researcherPassword" placeholder="••••••••">
+            </div>
+            
+            <button class="btn" onclick="loginResearcher()">Login</button>
+            
+            <p style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+                Don't have an account? 
+                <span class="link-btn" onclick="showResearcherRegister()">Create one</span>
+            </p>
+        </div>
+
+        <!-- RESEARCHER REGISTRATION -->
+        <div id="researcherRegister" class="hidden">
+            <span class="back-btn" onclick="backToResearcherLogin()">← Back to Login</span>
+            <h1 class="title">Create Account</h1>
+            <p class="subtitle">Register as a researcher</p>
+            
+            <div id="regMessage" class="message"></div>
+            
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="regUsername" placeholder="Choose a username">
+            </div>
+            
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="regEmail" placeholder="your.email@example.com">
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="regPassword" placeholder="Minimum 6 characters">
+            </div>
+            
+            <div class="input-group">
+                <label>Confirm Password</label>
+                <input type="password" id="regConfirmPassword" placeholder="Re-enter password">
+            </div>
+            
+            <button class="btn" onclick="registerResearcher()">Create Account</button>
+        </div>
+
+        <!-- DATA PROVIDER - DATABASE SELECTION -->
+        <div id="dataProviderDBSelect" class="hidden">
+            <span class="back-btn" onclick="showRoleSelection()">← Back</span>
+            <h1 class="title">Data Provider</h1>
+            <p class="subtitle">Select your database</p>
+            
+            <div class="db-grid">
+                <div class="db-card" onclick="selectDatabase('PostgreSQL')">
+                    <h4>🐘 PostgreSQL</h4>
+                    <p>Relational data (Climate & Agriculture)</p>
+                </div>
+                
+                <div class="db-card" onclick="selectDatabase('MongoDB')">
+                    <h4>🍃 MongoDB</h4>
+                    <p>NoSQL data (Biodiversity & Sensors)</p>
+                </div>
+                
+                <div class="db-card" onclick="selectDatabase('CSV')">
+                    <h4>📄 CSV Data Lake</h4>
+                    <p>Sensor readings and logs</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- DATA PROVIDER - LOGIN FORM -->
+        <div id="dataProviderLogin" class="hidden">
+            <span class="back-btn" onclick="backToDBSelection()">← Back to Database Selection</span>
+            <h1 class="title">Data Provider Login</h1>
+            <p class="subtitle">Login to <span id="selectedDbName"></span></p>
+                
+                <div id="dpMessage" class="message"></div>
+                
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="dpUsername" placeholder="Your username">
+                </div>
+                
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="dpEmail" placeholder="your.email@example.com">
+                </div>
+                
+                <div class="input-group">
+                    <label>Personal Password</label>
+                    <input type="password" id="dpPersonalPassword" placeholder="Your password">
+                </div>
+                
+                <div class="input-group">
+                    <label>Database Password</label>
+                    <input type="password" id="dpDbPassword" placeholder="Database access password">
+                </div>
+            
+            <button class="btn" onclick="loginDataProvider()">Login</button>
+        </div>
+
+        <!-- ADMINISTRATOR LOGIN -->
+        <div id="adminLogin" class="hidden">
+            <span class="back-btn" onclick="showRoleSelection()">← Back</span>
+            <h1 class="title">Administrator</h1>
+            <p class="subtitle">System management access</p>
+            
+            <div id="adminMessage" class="message"></div>
+            
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="adminEmail" placeholder="admin@example.com">
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="adminPassword" placeholder="••••••••">
+            </div>
+            
+            <button class="btn" onclick="loginAdmin()">Login</button>
+        </div>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>
