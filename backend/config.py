@@ -44,5 +44,13 @@ PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
 # Get your API key from: https://console.groq.com/keys
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
+# Email Configuration (SMTP)
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'True').lower() == 'true'
+SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', SMTP_USERNAME)
+
 # CSV Data Path
 CSV_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'sensor_readings.csv')

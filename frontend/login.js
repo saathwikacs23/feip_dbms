@@ -83,17 +83,18 @@ async function registerResearcher() {
         const response = await fetch(`${API_BASE_URL}/api/register-researcher`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username, email, password })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            messageDiv.textContent = '✓ Registration successful! Redirecting to login...';
+            messageDiv.textContent = '✓ Registration successful! Redirecting to dashboard...';
             messageDiv.className = 'message success';
-            setTimeout(() => backToResearcherLogin(), 2000);
+            setTimeout(() => window.location.href = 'dashboard.html', 1500);
         } else {
-            messageDiv.textContent = data.error || 'Registration failed';
+            messageDiv.textContent = data.message || data.error || 'Registration failed';
             messageDiv.className = 'message error';
         }
     } catch (error) {

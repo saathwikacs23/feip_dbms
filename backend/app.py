@@ -75,6 +75,20 @@ def register_researcher_route():
         result = register_researcher(username, email, password)
         
         if result['success']:
+            # Automatically log in the researcher by creating a session
+            # Get the user details from database
+            from auth import authenticate_researcher
+            auth_result = authenticate_researcher(username, password)
+            
+            if auth_result['success']:
+                # Create session
+                session['user_id'] = auth_result['user_id']
+                session['username'] = auth_result['username']
+                session['email'] = auth_result['email']
+                session['role'] = auth_result['role']
+                session['logged_in'] = True
+                session.permanent = True
+            
             return jsonify(result), 200
         else:
             return jsonify(result), 400

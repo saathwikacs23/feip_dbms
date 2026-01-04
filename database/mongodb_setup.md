@@ -12,7 +12,7 @@ mongosh
 
 # STEP 3: Load the setup script
 # From within mongosh, run:
-load("c:/Users/Lenovo/dbmsel/dbms/database/mongodb_setup.js")
+load("C:/Users/Lenovo/dbmsel/dbms/database/mongodb_setup.js")
 
 # OR run from PowerShell directly:
 # mongosh < database/mongodb_setup.js

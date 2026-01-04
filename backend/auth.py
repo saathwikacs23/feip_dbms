@@ -7,6 +7,7 @@ import bcrypt
 from functools import wraps
 from flask import session, jsonify
 from database import db_manager
+from email_service import send_researcher_credentials
 
 # ========================================
 # Password Hashing Utilities
@@ -81,7 +82,22 @@ def register_researcher(username, email, password):
         success = db_manager.postgres.execute_update(insert_query, (username, email, password))
         
         if success:
-            return {'success': True, 'message': 'Account created successfully'}
+            # Send credentials via email
+            email_result = send_researcher_credentials(email, username, password)
+            
+            if email_result['success']:
+                return {
+                    'success': True,
+                    'message': 'Account created successfully. Credentials have been sent to your email.',
+                    'email_sent': True
+                }
+            else:
+                # Account created but email failed
+                return {
+                    'success': True,
+                    'message': f'Account created successfully, but email delivery failed: {email_result["message"]}',
+                    'email_sent': False
+                }
         else:
             return {'success': False, 'message': 'Failed to create account'}
         
