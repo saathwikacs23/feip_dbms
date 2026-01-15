@@ -497,6 +497,32 @@ def logout():
         }), 500
 
 
+@app.route('/api/check-session', methods=['GET'])
+def check_session():
+    """Check if user is authenticated and return user info"""
+    try:
+        if 'logged_in' in session and session['logged_in']:
+            return jsonify({
+                'authenticated': True,
+                'user': {
+                    'user_id': session.get('user_id'),
+                    'username': session.get('username'),
+                    'email': session.get('email'),
+                    'role': session.get('role'),
+                    'assigned_database': session.get('assigned_database')
+                }
+            }), 200
+        else:
+            return jsonify({
+                'authenticated': False
+            }), 200
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'error': str(e)
+        }), 200
+
+
 @app.route('/api/current-user', methods=['GET'])
 @login_required
 def current_user():
@@ -1151,7 +1177,7 @@ def create_user():
             return jsonify({
                 'success': True,
                 'message': 'User created successfully'
-            }), 201
+            }, 201)
         else:
             return jsonify({
                 'success': False,
@@ -1229,6 +1255,222 @@ def get_regions():
 
 
 # ========================================
+# FEIP Notebook Routes
+# ========================================
+@app.route('/api/notebook/tables', methods=['GET'])
+@login_required
+@role_required('researcher')
+def get_notebook_tables():
+    """
+    Get list of available tables from PostgreSQL and MongoDB for notebook.
+    Only accessible to researchers.
+    """
+    try:
+        tables = {
+            'PostgreSQL': [],
+            'MongoDB': []
+        }
+        
+        # Get PostgreSQL tables
+        pg_query = """
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+        """
+        pg_tables = db_manager.postgres.execute_query(pg_query)
+        # Only show specific tables for Environmental db
+        allowed_pg_tables = ['agriculture_data', 'climate_data', 'region_info']
+        if pg_tables:
+            tables['Environmental DB'] = [t['table_name'] for t in pg_tables if t['table_name'] in allowed_pg_tables]
+        
+        # Remove MongoDB from the tables list to restrict access in the notebook
+        if 'MongoDB' in tables:
+            del tables['MongoDB']
+        
+        return jsonify({
+            'success': True,
+            'tables': tables
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notebook/sample-data', methods=['POST'])
+@login_required
+@role_required('researcher')
+def get_sample_data():
+    """
+    Get 20-row sample from a specific table.
+    Returns data as JSON that can be loaded into pandas.
+    """
+    try:
+        data = request.get_json()
+        database = data.get('database')  # 'PostgreSQL' or 'MongoDB'
+        table_name = data.get('table')
+        
+        if not database or not table_name:
+            return jsonify({
+                'success': False,
+                'error': 'Database and table name required'
+            }), 400
+        
+        sample_data = []
+        
+        if database == 'PostgreSQL':
+            # Get 20 rows from PostgreSQL table
+            query = f"SELECT * FROM {table_name} LIMIT 20"
+            results = db_manager.postgres.execute_query(query)
+            
+            if results:
+                # Convert datetime objects to strings for JSON serialization
+                for row in results:
+                    converted_row = {}
+                    for key, value in row.items():
+                        if isinstance(value, datetime):
+                            converted_row[key] = value.isoformat()
+                        else:
+                            converted_row[key] = value
+                    sample_data.append(converted_row)
+        
+        elif database == 'MongoDB':
+            # Get 20 documents from MongoDB collection
+            results = db_manager.mongo.find(table_name, limit=20)
+            
+            if results:
+                # Convert datetime objects to strings
+                for doc in results:
+                    converted_doc = {}
+                    for key, value in doc.items():
+                        if isinstance(value, datetime):
+                            converted_doc[key] = value.isoformat()
+                        else:
+                            converted_doc[key] = value
+                    sample_data.append(converted_doc)
+        
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid database type'
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'data': sample_data,
+            'rows': len(sample_data),
+            'database': database,
+            'table': table_name
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notebook/execute', methods=['POST'])
+@login_required
+@role_required('researcher')
+def execute_notebook_code():
+    """
+    Execute Python code in an isolated environment.
+    Uses RestrictedPython for security.
+    """
+    import sys
+    from io import StringIO
+    import traceback
+    
+    try:
+        data = request.get_json()
+        code = data.get('code', '')
+        
+        if not code:
+            return jsonify({
+                'success': False,
+                'error': 'No code provided'
+            }), 400
+        
+        # Capture stdout
+        old_stdout = sys.stdout
+        sys.stdout = output_buffer = StringIO()
+        
+        # Create isolated namespace with common data science libraries
+        namespace = {
+            '__builtins__': __builtins__,
+            'print': print,
+        }
+        
+        # Import commonly used libraries into namespace
+        try:
+            import pandas as pd
+            import numpy as np
+            import matplotlib
+            matplotlib.use('Agg')  # Non-interactive backend
+            import matplotlib.pyplot as plt
+            from io import BytesIO
+            import base64
+            
+            namespace['pd'] = pd
+            namespace['np'] = np
+            namespace['plt'] = plt
+            namespace['BytesIO'] = BytesIO
+            namespace['base64'] = base64
+            
+        except ImportError as e:
+            sys.stdout = old_stdout
+            return jsonify({
+                'success': False,
+                'error': f'Required library not installed: {str(e)}'
+            }), 500
+        
+        # Execute the code
+        try:
+            exec(code, namespace)
+            
+            # Capture any matplotlib figures
+            figures = []
+            for fig_num in plt.get_fignums():
+                fig = plt.figure(fig_num)
+                buf = BytesIO()
+                fig.savefig(buf, format='png', bbox_inches='tight')
+                buf.seek(0)
+                img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+                figures.append(img_base64)
+                plt.close(fig)
+            
+            # Get output
+            output = output_buffer.getvalue()
+            sys.stdout = old_stdout
+            
+            return jsonify({
+                'success': True,
+                'output': output,
+                'figures': figures
+            }), 200
+            
+        except Exception as e:
+            sys.stdout = old_stdout
+            error_trace = traceback.format_exc()
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'traceback': error_trace
+            }), 400
+            
+    except Exception as e:
+        sys.stdout = old_stdout
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ========================================
 # Error Handlers
 # ========================================
 @app.errorhandler(404)
@@ -1270,3 +1512,11 @@ if __name__ == '__main__':
     
     # Run Flask app
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+@app.route('/api/debug-session', methods=['GET'])
+def debug_session():
+    """Debug endpoint to show session contents (for development only)"""
+    from flask import session as flask_session
+    return jsonify({
+        'session': {k: v for k, v in flask_session.items()}
+    }), 200

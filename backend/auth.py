@@ -355,7 +355,8 @@ def role_required(*allowed_roles):
                 }), 401
             
             user_role = session.get('role')
-            if user_role not in allowed_roles:
+            # Case-insensitive role check
+            if not user_role or user_role.lower() not in [r.lower() for r in allowed_roles]:
                 return jsonify({
                     'success': False,
                     'error': f'Access denied. Required role: {", ".join(allowed_roles)}',
