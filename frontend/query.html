@@ -169,6 +169,7 @@
             .hero-section {
                 padding: 30px 20px;
             }
+
             .hero-title {
                 font-size: 2rem;
             }
@@ -391,7 +392,7 @@
             .data-table {
                 font-size: 0.75rem;
             }
-            
+
             .data-table th,
             .data-table td {
                 padding: 8px 12px;
@@ -427,6 +428,7 @@
         }
 
         @media (max-width: 768px) {
+
             .data-table th,
             .data-table td {
                 padding: 8px 12px;
@@ -713,6 +715,68 @@
         .sql-query-display.visible {
             display: block;
         }
+
+        /* --- SCHEMA DROPDOWNS --- */
+        .schema-item-wrapper {
+            position: relative;
+            cursor: pointer;
+            display: block;
+            margin-bottom: 4px;
+            transition: color 0.2s;
+        }
+
+        .schema-item-wrapper:hover {
+            color: var(--accent-color);
+        }
+
+        /* CHANGED: Inline accordion style to avoid overflow clipping */
+        .schema-details {
+            display: none;
+            position: relative;
+            /* Changed from absolute */
+            left: 0;
+            top: 0;
+            width: 100%;
+            /* Full width of sidebar */
+            background: #F8F9FA;
+            /* Slightly distinct background */
+            border-left: 3px solid var(--accent-color);
+            box-shadow: none;
+            /* Remove floating shadow */
+            padding: 10px 10px 10px 15px;
+            z-index: 1;
+            list-style: none;
+            margin-left: 0;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Removed the arrow ::before element as it's no longer a popout */
+
+        .schema-item-wrapper:hover .schema-details {
+            display: block;
+            animation: fadeIn 0.2s var(--easing);
+        }
+
+        .schema-details h5 {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #666;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .schema-details li {
+            font-size: 0.75rem;
+            color: #333;
+            padding: 2px 0;
+            border-bottom: none;
+            /* Clean up lines */
+            font-family: var(--mono-font);
+        }
     </style>
 </head>
 
@@ -729,20 +793,103 @@
 
                 <div class="schema-card">
                     <div class="section-title">Available Data</div>
+
                     <div class="schema-group">
                         <h4>📍 Geographic & Climate</h4>
-                        <span class="schema-item">Regional Locations</span>
-                        <span class="schema-item">Weather Patterns</span>
-                        <span class="schema-item">Crop Production</span>
+
+                        <div class="schema-item-wrapper">
+                            Review Regional Locations
+                            <ul class="schema-details">
+                                <h5>Region Info (Postgres)</h5>
+                                <li>region_id (PK)</li>
+                                <li>region_name</li>
+                                <li>latitude</li>
+                                <li>longitude</li>
+                            </ul>
+                        </div>
+
+                        <div class="schema-item-wrapper">
+                            Review Weather Patterns
+                            <ul class="schema-details">
+                                <h5>Climate Data (Postgres)</h5>
+                                <li>climate_id (PK)</li>
+                                <li>region_id (FK)</li>
+                                <li>temperature</li>
+                                <li>rainfall</li>
+                                <li>humidity</li>
+                                <li>timestamp</li>
+                            </ul>
+                        </div>
+
+                        <div class="schema-item-wrapper">
+                            Review Crop Production
+                            <ul class="schema-details">
+                                <h5>Agriculture Data (Postgres)</h5>
+                                <li>agri_id (PK)</li>
+                                <li>region_id (FK)</li>
+                                <li>crop_type</li>
+                                <li>yield</li>
+                                <li>season</li>
+                                <li>year</li>
+                            </ul>
+                        </div>
                     </div>
+
                     <div class="schema-group">
                         <h4>🌿 Ecology & Sensors</h4>
-                        <span class="schema-item">Species Diversity</span>
-                        <span class="schema-item">Environmental Alerts</span>
+
+                        <div class="schema-item-wrapper">
+                            Review Species Diversity
+                            <ul class="schema-details">
+                                <h5>Biodiversity Data (Mongo)</h5>
+                                <li>biodiversity_id</li>
+                                <li>region_id</li>
+                                <li>species_count</li>
+                                <li>endangered_species []</li>
+                                <li>dominant_flora []</li>
+                                <li>conservation_status</li>
+                            </ul>
+                        </div>
+
+                        <div class="schema-item-wrapper">
+                            Review Environmental Alerts
+                            <ul class="schema-details">
+                                <h5>Sensor Logs (Mongo)</h5>
+                                <li>sensor_id</li>
+                                <li>region_id</li>
+                                <li>event_type</li>
+                                <li>severity</li>
+                                <li>message</li>
+                                <li>timestamp</li>
+                            </ul>
+                        </div>
                     </div>
+
                     <div class="schema-group">
                         <h4>🌐 Air Quality</h4>
-                        <span class="schema-item">CO₂ & PM2.5 Readings</span>
+
+                        <div class="schema-item-wrapper">
+                            Review CO₂ & PM2.5 Readings
+                            <ul class="schema-details">
+                                <h5>Air Quality (Mongo)</h5>
+                                <li>reading_id</li>
+                                <li>region_id</li>
+                                <li>aqi</li>
+                                <li>pollutants {co2, pm2.5..}</li>
+                                <li>recorded_at</li>
+                            </ul>
+                        </div>
+
+                        <div class="schema-item-wrapper">
+                            Review Raw Sensor Data
+                            <ul class="schema-details">
+                                <h5>Sensor Readings (CSV)</h5>
+                                <li>timestamp</li>
+                                <li>region_id</li>
+                                <li>co2_level</li>
+                                <li>pm2_5</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -756,7 +903,8 @@
             <header class="hero-section">
                 <div class="section-title">Intelligent Query Interface</div>
                 <h1 class="hero-title">Ask Anything About the Environment.</h1>
-                <p class="hero-subtitle">Search across climate records, species data, and air quality sensors. All in one place! Just type your question.</p>
+                <p class="hero-subtitle">Search across climate records, species data, and air quality sensors. All in
+                    one place! Just type your question.</p>
             </header>
 
             <!-- TOGGLE BAR -->
@@ -801,7 +949,7 @@
                 <div id="view-sql" class="view-panel">
                     <div class="section-title">SQL Editor</div>
                     <h3 style="margin-bottom: 20px;">Direct Query.</h3>
-                    
+
                     <div class="sql-editor-layout">
                         <!-- Left: SQL Editor -->
                         <div>
@@ -822,7 +970,8 @@
                             <div id="sampleQueriesList" class="sample-grid">
                                 <p style="font-size: 0.8rem; color: #999;">Loading samples...</p>
                             </div>
-                            <button id="showMoreBtn" class="show-more-btn" onclick="toggleSampleQueries()" style="display: none;">Show More</button>
+                            <button id="showMoreBtn" class="show-more-btn" onclick="toggleSampleQueries()"
+                                style="display: none;">Show More</button>
                         </div>
                     </div>
                 </div>
@@ -889,7 +1038,7 @@
         function toggleSQLDisplay() {
             const display = document.getElementById('generatedSQLDisplay');
             const btn = document.querySelector('.sql-toggle-btn');
-            
+
             if (display.classList.contains('visible')) {
                 display.classList.remove('visible');
                 btn.textContent = 'Show Query';

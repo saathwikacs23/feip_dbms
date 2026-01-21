@@ -1015,6 +1015,35 @@ def insert_sensor_log():
             if field not in data:
                 return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
         data['timestamp'] = datetime.utcnow()
+        
+        # Check if user is a Data Provider assigned to CSV
+        current_user = get_current_user()
+        if current_user and current_user.get('role') == 'Data Provider' and current_user.get('database') == 'CSV':
+            try:
+                import csv
+                import os
+                
+                # Path to CSV file
+                csv_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'sensor_readings.csv')
+                
+                # Append to CSV
+                with open(csv_file_path, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    # Writing timestamp, region_id, event_type, severity, message
+                    # Note: This creates a jagged CSV schema as per user request (original: timestamp,region_id,co2_level,pm2_5)
+                    writer.writerow([
+                        data['timestamp'].isoformat(),
+                        data['region_id'],
+                        data['event_type'],
+                        data['severity'],
+                        data['message']
+                    ])
+                    
+                return jsonify({'success': True, 'message': 'Sensor log added to CSV successfully'}), 201
+            except Exception as e:
+                print(f"CSV Write Error: {str(e)}")
+                return jsonify({'success': False, 'error': f"Failed to write to CSV: {str(e)}"}), 500
+
         result = db_manager.mongo.insert_one('Sensor_Logs', data)
         if result:
             return jsonify({'success': True, 'message': 'Sensor log inserted successfully', 'id': str(result)}), 201
