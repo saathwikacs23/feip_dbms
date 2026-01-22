@@ -115,9 +115,9 @@ class NLPQueryConverter:
         """Pattern: region-specific queries"""
         if 'region' in query and ('name' in query or 'list' in query or 'show' in query):
             return {
-                'sql': 'SELECT * FROM postgres.public.`region_info` LIMIT 10',
+                'sql': 'SELECT DISTINCT region_name FROM postgres.public.`region_info` LIMIT 10',
                 'confidence': 0.95,
-                'interpretation': 'Listing all regions'
+                'interpretation': 'Listing all unique regions'
             }
         return None
     
@@ -165,46 +165,67 @@ class NLPQueryConverter:
         # Climate + Regions
         if ('climate' in query or 'temperature' in query) and 'region' in query:
             return {
-                'sql': '''SELECT r.region_name, c.temperature, c.rainfall, c.humidity
+                'sql': '''SELECT r.region_name, MAX(c.temperature) AS temperature, MAX(c.rainfall) AS rainfall, MAX(c.humidity) AS humidity
                 FROM postgres.public.`climate_data` c
                 JOIN postgres.public.`region_info` r ON c.region_id = r.region_id
+                GROUP BY r.region_name
                 LIMIT 10''',
                 'confidence': 0.85,
-                'interpretation': 'Showing climate data with region names'
+                'interpretation': 'Showing unique climate data by region'
             }
         
         # Biodiversity + Climate
         if ('species' in query or 'biodiversity' in query) and ('climate' in query or 'temperature' in query):
             return {
-                'sql': '''SELECT r.region_name, c.temperature, b.species_count, b.conservation_status
+                'sql': '''SELECT r.region_name, MAX(c.temperature) AS temperature, MAX(b.species_count) AS species_count, MAX(b.conservation_status) AS conservation_status
                 FROM postgres.public.`region_info` r
                 JOIN postgres.public.`climate_data` c ON r.region_id = c.region_id
                 JOIN mongo.environmental_db.`Biodiversity_Data` b ON r.region_id = b.region_id
+                GROUP BY r.region_name
                 LIMIT 10''',
                 'confidence': 0.8,
-                'interpretation': 'Correlating species diversity with climate conditions'
+                'interpretation': 'Correlating unique species diversity with climate conditions by region'
             }
         
         # Sensors + Regions
         if ('sensor' in query or 'co2' in query) and 'region' in query:
             return {
-                'sql': '''SELECT r.region_name, s.co2_level, s.pm2_5
+                'sql': '''SELECT r.region_name, MAX(s.co2_level) AS co2_level, MAX(s.pm2_5) AS pm2_5
                 FROM dfs.data.`sensor_readings.csv` s
                 JOIN postgres.public.`region_info` r ON CAST(s.region_id AS INT) = r.region_id
+                GROUP BY r.region_name
                 LIMIT 10''',
                 'confidence': 0.85,
-                'interpretation': 'Showing sensor readings with region names'
+                'interpretation': 'Showing unique sensor readings by region'
             }
         
-        # Agriculture + Regions
-        if ('crop' in query or 'agriculture' in query or 'farming' in query) and 'region' in query:
+        # Agriculture + Regions (with climate/rainfall)
+        if (('crop' in query or 'agriculture' in query or 'farming' in query) and 'region' in query) or ('wheat' in query and 'region' in query):
+            # If wheat is mentioned, filter for wheat
+            crop_filter = "a.crop_type = 'Wheat'" if 'wheat' in query else None
+            temp_filter = None
+            if any(word in query for word in ['high temperature', 'hot', 'warm', 'above']):
+                temp_filter = "c.temperature > 30"  # You can adjust threshold as needed
+            where_clauses = []
+            if crop_filter:
+                where_clauses.append(crop_filter)
+            if temp_filter:
+                where_clauses.append(temp_filter)
+            where_sql = ''
+            if where_clauses:
+                where_sql = 'WHERE ' + ' AND '.join(where_clauses)
             return {
-                'sql': '''SELECT r.region_name, a.crop_type, a.yield, a.season
+                'sql': f'''
+                SELECT r.region_name, AVG(c.temperature) AS avg_temperature, AVG(a.yield) AS avg_wheat_production
                 FROM postgres.public.`agriculture_data` a
                 JOIN postgres.public.`region_info` r ON a.region_id = r.region_id
-                LIMIT 10''',
-                'confidence': 0.85,
-                'interpretation': 'Showing crop production by region'
+                JOIN postgres.public.`climate_data` c ON r.region_id = c.region_id
+                {where_sql}
+                GROUP BY r.region_name
+                LIMIT 10
+                ''',
+                'confidence': 0.95,
+                'interpretation': 'Showing regions with high temperature and wheat production (averaged, no duplicates)'
             }
         
         return None

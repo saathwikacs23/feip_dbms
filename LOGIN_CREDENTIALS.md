@@ -30,7 +30,7 @@ Data Providers have restricted access to specific databases. Each database has i
 
 ### PostgreSQL Data Providers
 
-**Database Password:** `postgres_db_pass`
+**Database Password:** `postgres`
 
 | Username | Email | Personal Password |
 |----------|-------|-------------------|
