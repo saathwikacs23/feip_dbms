@@ -76,7 +76,11 @@ Description: Audit trail of executed queries
 Fields: biodiversity_id, region_id (INT), region_name, species_count (INT), endangered_species (Array), dominant_flora (Array), conservation_status (String), last_survey_date (Date)
 Conservation Status: Critical, Endangered, Vulnerable
 Description: Species diversity and conservation data
-**CRITICAL**: Do NOT use ARRAY_LENGTH or array functions on endangered_species/dominant_flora. These arrays cannot be processed in federated queries. Use species_count (INT) field for counts, or simply return the array field without processing.
+**CRITICAL**: Do NOT SELECT endangered_species or dominant_flora array fields! Do NOT use ARRAY_LENGTH or array functions on these fields. These arrays cannot be processed in federated queries. Use ONLY:
+  - species_count (INT) for counting species
+  - conservation_status (String) for endangerment filtering
+  - region_id, region_name for joining
+When you need to check for endangered species in queries, filter by conservation_status = 'Critical' or conservation_status IN ('Critical', 'Endangered') instead.
 
 ### 2. Sensor_Logs
 Fields: log_id, sensor_id, region_id (INT), event_type, severity (warning/critical/info), message, timestamp (Date)
@@ -170,6 +174,50 @@ Example: CAST(s.region_id AS INT), CAST(s.co2_level AS FLOAT)
         
         return self._convert_with_llm(natural_query)
     
+    def _validate_mongodb_arrays(self, sql_query):
+        """
+        Validate and fix MongoDB array field issues in SQL queries.
+        Removes array fields that will cause Drill to fail in federated queries.
+        
+        Args:
+            sql_query (str): The SQL query to validate
+            
+        Returns:
+            tuple: (validated_sql, issues_found)
+        """
+        import re
+        issues = []
+        validated_sql = sql_query
+        
+        # List of MongoDB array fields that cannot be selected in federated queries
+        array_fields = ['endangered_species', 'dominant_flora', 'habitat_regions']
+        
+        # Check for array field selections in SELECT clause
+        for field in array_fields:
+            # Match patterns like "SELECT ... field ..." but not in WHERE clause
+            # Look for field in SELECT before FROM
+            select_match = re.search(r'SELECT\s+.*?FROM', validated_sql, re.IGNORECASE | re.DOTALL)
+            if select_match:
+                select_clause = select_match.group(0)
+                if field in select_clause.lower():
+                    issues.append(f"Array field '{field}' selected in federated query (will cause Drill failure)")
+                    # Remove the field from SELECT, keeping other fields
+                    # Pattern: ", field" or "field, " or "field" alone
+                    validated_sql = re.sub(rf',\s*{field}\b', '', validated_sql, flags=re.IGNORECASE)
+                    validated_sql = re.sub(rf'\b{field}\s*,', '', validated_sql, flags=re.IGNORECASE)
+                    validated_sql = re.sub(rf'\b{field}\b', '', validated_sql, flags=re.IGNORECASE)
+        
+        # Check for dangerous array functions
+        array_functions = ['ARRAY_LENGTH', 'ARRAY_CONTAINS', 'ARRAY_POSITION', 'FLATTEN']
+        for func in array_functions:
+            if func in validated_sql.upper():
+                issues.append(f"Dangerous array function '{func}' detected (not compatible with Drill)")
+                # Remove the function call
+                pattern = rf'{func}\s*\([^)]*\)'
+                validated_sql = re.sub(pattern, '1', validated_sql, flags=re.IGNORECASE)
+        
+        return validated_sql, issues
+    
     def _convert_with_llm(self, natural_query):
         """Use Groq Qwen to convert natural language to SQL"""
         try:
@@ -232,12 +280,13 @@ IMPORTANT: Return ONLY the SQL query. Do NOT include any thinking process, expla
      WHERE a.avg_temp > 20
      LIMIT 50
      ```
-5. **MongoDB Arrays**:
-   - **NEVER use ARRAY_LENGTH, ARRAY_CONTAINS, or any array functions** - they don't work in Drill federated queries!
-   - If filtering by array presence, use: `WHERE endangered_species IS NOT NULL` (checks if field exists and is not null)
-   - To check for endangered species, simply filter: `WHERE conservation_status = 'Critical'` or use species_count
-   - Simply SELECT array fields as-is (e.g., `endangered_species`) and let the client handle them.
-   - Example: `SELECT region_id, endangered_species FROM mongo.environmental_db.\`Biodiversity_Data\`` (NOT: WHERE ARRAY_LENGTH(endangered_species) > 0)
+5. **MongoDB Arrays - CRITICAL RULE**:
+   - **NEVER SELECT array fields** (endangered_species, dominant_flora, habitat_regions, etc.) in your SELECT clause!
+   - **NEVER use ARRAY_LENGTH, ARRAY_CONTAINS, or any array functions** - they will cause query failures!
+   - **For filtering by endangered status**: Use `WHERE conservation_status = 'Critical'` or `WHERE conservation_status IN ('Critical', 'Endangered')`
+   - **For species counts**: Use the `species_count` INT field, NOT array operations
+   - **Example of WRONG query**: `SELECT region_id, endangered_species FROM mongo...` ❌
+   - **Example of CORRECT query**: `SELECT region_id, species_count, conservation_status FROM mongo...` ✓
 6. **CSV Files**:
    - In the CTE for CSV, CAST columns immediately: `SELECT CAST(region_id AS INT) as id, CAST(co2_level AS FLOAT) as co2 ...`
 7. Always add `LIMIT 50` to the final SELECT.
@@ -293,14 +342,18 @@ SQL Query:"""
             if sql_query.endswith(';'):
                 sql_query = sql_query[:-1].strip()
             
+            # Validate and fix MongoDB array issues
+            sql_query, validation_issues = self._validate_mongodb_arrays(sql_query)
+            
             # Generate interpretation
             interpretation = self._generate_interpretation(natural_query, sql_query)
             
             return {
                 'sql': sql_query,
-                'confidence': 0.95,
+                'confidence': 0.95 if not validation_issues else 0.85,
                 'interpretation': interpretation,
-                'method': 'llm'
+                'method': 'llm',
+                'validation_issues': validation_issues if validation_issues else None
             }
             
         except Exception as e:

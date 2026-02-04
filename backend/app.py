@@ -64,11 +64,13 @@ def register_researcher_route():
                 'message': 'Username, email, and password are required'
             }), 400
         
-        # Validate password length
-        if len(password) < 6:
+        # Validate password strength
+        from auth import validate_password_strength
+        is_valid, validation_message = validate_password_strength(password)
+        if not is_valid:
             return jsonify({
                 'success': False,
-                'message': 'Password must be at least 6 characters'
+                'message': validation_message
             }), 400
         
         # Register researcher
@@ -310,74 +312,15 @@ def get_all_users():
         }), 500
 
 
-@app.route('/api/admin/update-password', methods=['POST'])
-@login_required
-@role_required('Administrator')
-def update_user_password():
-    """Update password for any user"""
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        user_role = data.get('role')
-        new_password = data.get('new_password')
-        
-        if not all([user_id, user_role, new_password]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
-        
-        # Update password based on role
-        if user_role == 'Researcher':
-            # Plain text for researchers
-            update_query = """
-                UPDATE Researcher_Accounts 
-                SET password = %s 
-                WHERE researcher_id = %s
-            """
-            db_manager.postgres.execute_update(update_query, (new_password, user_id))
-            
-        elif user_role == 'Data Provider':
-            # Plain text for data providers
-            update_query = """
-                UPDATE Data_Provider_Credentials 
-                SET personal_password = %s 
-                WHERE provider_id = %s
-            """
-            db_manager.postgres.execute_update(update_query, (new_password, user_id))
-            
-        elif user_role == 'Administrator':
-            # Plain text for administrators
-            update_query = """
-                UPDATE Administrators 
-                SET password = %s 
-                WHERE admin_id = %s
-            """
-            db_manager.postgres.execute_update(update_query, (new_password, user_id))
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid user role'
-            }), 400
-        
-        return jsonify({
-            'success': True,
-            'message': 'Password updated successfully'
-        }), 200
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error updating password: {str(e)}'
-        }), 500
-
-
 @app.route('/api/admin/add-provider', methods=['POST'])
 @login_required
 @role_required('Administrator')
 def add_data_provider():
     """Add a new data provider"""
     try:
+        from auth import hash_password
+        from datetime import datetime
+        
         data = request.get_json()
         username = data.get('username')
         email = data.get('email')
@@ -404,21 +347,30 @@ def add_data_provider():
                 'message': 'Username or email already exists'
             }), 400
         
-        # Insert new data provider
+        # Hash the personal password using bcrypt
+        hashed_password = hash_password(personal_password)
+        
+        # Insert new data provider with hashed password
         insert_query = """
             INSERT INTO Data_Provider_Credentials 
-            (username, email, personal_password, database_name, database_password, created_at)
+            (username, email, password_hash, database_name, database_password, created_at)
             VALUES (%s, %s, %s, %s, %s, %s)
         """
-        db_manager.postgres.execute_update(
+        success = db_manager.postgres.execute_update(
             insert_query, 
-            (username, email, personal_password, database_name, database_password, datetime.now())
+            (username, email, hashed_password, database_name, database_password, datetime.now())
         )
         
-        return jsonify({
-            'success': True,
-            'message': 'Data Provider added successfully'
-        }), 200
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Data Provider added successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to add data provider'
+            }), 500
         
     except Exception as e:
         return jsonify({
@@ -433,6 +385,9 @@ def add_data_provider():
 def add_administrator():
     """Add a new administrator"""
     try:
+        from auth import hash_password
+        from datetime import datetime
+        
         data = request.get_json()
         username = data.get('username')
         email = data.get('email')
@@ -457,21 +412,30 @@ def add_administrator():
                 'message': 'Username or email already exists'
             }), 400
         
-        # Insert new administrator
+        # Hash the password using bcrypt
+        hashed_password = hash_password(password)
+        
+        # Insert new administrator with hashed password
         insert_query = """
             INSERT INTO Administrators 
-            (username, email, password, created_at)
+            (username, email, password_hash, created_at)
             VALUES (%s, %s, %s, %s)
         """
-        db_manager.postgres.execute_update(
+        success = db_manager.postgres.execute_update(
             insert_query, 
-            (username, email, password, datetime.now())
+            (username, email, hashed_password, datetime.now())
         )
         
-        return jsonify({
-            'success': True,
-            'message': 'Administrator added successfully'
-        }), 200
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Administrator added successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to add administrator'
+            }), 500
         
     except Exception as e:
         return jsonify({

@@ -44,6 +44,43 @@ def verify_password(password, password_hash):
         return False
 
 
+def validate_password_strength(password):
+    """
+    Validate password strength requirements.
+    
+    Requirements:
+    - Minimum 6 characters
+    - At least 1 uppercase letter
+    - At least 1 lowercase letter
+    - At least 1 digit
+    - At least 1 special character
+    
+    Args:
+        password (str): Password to validate
+        
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    import re
+    
+    if len(password) < 6:
+        return False, 'Password must be at least 6 characters'
+    
+    if not re.search(r'[A-Z]', password):
+        return False, 'Password must contain at least 1 uppercase letter'
+    
+    if not re.search(r'[a-z]', password):
+        return False, 'Password must contain at least 1 lowercase letter'
+    
+    if not re.search(r'[0-9]', password):
+        return False, 'Password must contain at least 1 digit'
+    
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"<>?,./]', password):
+        return False, 'Password must contain at least 1 special character (!@#$%^&* etc.)'
+    
+    return True, 'Password is valid'
+
+
 # ========================================
 # Researcher Authentication
 # ========================================
@@ -60,6 +97,11 @@ def register_researcher(username, email, password):
         dict: Success status and message
     """
     try:
+        # Validate password strength
+        is_valid, validation_message = validate_password_strength(password)
+        if not is_valid:
+            return {'success': False, 'message': validation_message}
+        
         # Check if username already exists
         check_query = "SELECT username FROM Researcher_Accounts WHERE username = %s"
         result = db_manager.postgres.execute_query(check_query, (username,))
@@ -74,12 +116,15 @@ def register_researcher(username, email, password):
         if result and len(result) > 0:
             return {'success': False, 'message': 'Email already exists'}
         
-        # Insert new researcher with plain text password
+        # Hash the password using bcrypt
+        hashed_password = hash_password(password)
+        
+        # Insert new researcher with hashed password
         insert_query = """
-            INSERT INTO Researcher_Accounts (username, email, password) 
+            INSERT INTO Researcher_Accounts (username, email, password_hash) 
             VALUES (%s, %s, %s)
         """
-        success = db_manager.postgres.execute_update(insert_query, (username, email, password))
+        success = db_manager.postgres.execute_update(insert_query, (username, email, hashed_password))
         
         if success:
             # Send credentials via email
@@ -118,7 +163,7 @@ def authenticate_researcher(username, password):
     """
     try:
         query = """
-            SELECT researcher_id, username, email, password 
+            SELECT researcher_id, username, email, password_hash 
             FROM Researcher_Accounts 
             WHERE username = %s
         """
@@ -128,10 +173,10 @@ def authenticate_researcher(username, password):
             return {'success': False, 'message': 'Invalid username or password'}
         
         user = result[0]
-        stored_password = user['password']
+        stored_password_hash = user['password_hash']
         
-        # Plain text password comparison
-        if password == stored_password:
+        # Verify password using bcrypt
+        if verify_password(password, stored_password_hash):
             # Update last login
             update_query = """
                 UPDATE Researcher_Accounts 
@@ -173,7 +218,7 @@ def authenticate_data_provider(username, email, personal_password, database_name
     """
     try:
         query = """
-            SELECT provider_id, username, email, personal_password, database_name, database_password 
+            SELECT provider_id, username, email, password_hash, database_name, database_password 
             FROM Data_Provider_Credentials 
             WHERE username = %s AND database_name = %s
         """
@@ -184,15 +229,15 @@ def authenticate_data_provider(username, email, personal_password, database_name
         
         provider = result[0]
         stored_email = provider['email']
-        stored_personal_pw = provider['personal_password']
+        stored_password_hash = provider['password_hash']
         stored_db_pw = provider['database_password']
         
         # Validate email
         if email != stored_email:
             return {'success': False, 'message': 'Invalid credentials'}
         
-        # Validate personal password (plain text for now - should be hashed in production)
-        if personal_password != stored_personal_pw:
+        # Validate personal password using bcrypt
+        if not verify_password(personal_password, stored_password_hash):
             return {'success': False, 'message': 'Invalid personal password'}
         
         # Validate database password
@@ -236,7 +281,7 @@ def authenticate_administrator(email, password):
     """
     try:
         query = """
-            SELECT admin_id, username, email, password 
+            SELECT admin_id, username, email, password_hash 
             FROM Administrators 
             WHERE email = %s
         """
@@ -246,10 +291,10 @@ def authenticate_administrator(email, password):
             return {'success': False, 'message': 'Invalid credentials'}
         
         admin = result[0]
-        stored_password = admin['password']
+        stored_password_hash = admin['password_hash']
         
-        # Check password (plain text for now - should be hashed in production)
-        if password != stored_password:
+        # Verify password using bcrypt
+        if not verify_password(password, stored_password_hash):
             return {'success': False, 'message': 'Invalid credentials'}
         
         # Update last login

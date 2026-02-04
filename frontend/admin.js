@@ -87,12 +87,6 @@ function populateTable(tableId, users, role, includeDatabase = false) {
         row += `
                 <td>${createdAt}</td>
                 <td>${lastLogin}</td>
-                <td>
-                    <div class="password-cell">
-                        <span class="password-display">••••••••</span>
-                        <button class="btn-edit" onclick='openEditModal(${JSON.stringify(user)}, "${role}")'>Edit</button>
-                    </div>
-                </td>
             </tr>
         `;
         
@@ -100,64 +94,7 @@ function populateTable(tableId, users, role, includeDatabase = false) {
     }).join('');
 }
 
-function openEditModal(user, role) {
-    currentEditUser = { ...user, role };
-    
-    const modal = document.getElementById('passwordModal');
-    const userInfo = document.getElementById('modalUserInfo');
-    const passwordInput = document.getElementById('newPassword');
-    
-    userInfo.textContent = `${user.username} (${role})`;
-    passwordInput.value = '';
-    
-    modal.classList.add('active');
-}
 
-function closeModal() {
-    const modal = document.getElementById('passwordModal');
-    modal.classList.remove('active');
-    currentEditUser = null;
-}
-
-async function savePassword() {
-    const newPassword = document.getElementById('newPassword').value.trim();
-    
-    if (!newPassword) {
-        alert('Please enter a new password');
-        return;
-    }
-    
-    if (!currentEditUser) {
-        alert('No user selected');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/update-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                user_id: currentEditUser.id,
-                role: currentEditUser.role,
-                new_password: newPassword
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showMessage('Password updated successfully', 'success');
-            closeModal();
-            await loadAllUsers();
-        } else {
-            showMessage('Error: ' + data.message, 'error');
-        }
-    } catch (error) {
-        console.error('Error updating password:', error);
-        showMessage('Error updating password', 'error');
-    }
-}
 
 function showMessage(message, type = 'success') {
     const messageBox = document.getElementById('messageBox');
@@ -239,7 +176,7 @@ async function saveNewProvider() {
             closeAddProviderModal();
             await loadAllUsers();
         } else {
-            showMessage('Error: ' + data.message, 'error');
+            showMessage('Error: ' + (data.message || data.error), 'error');
         }
     } catch (error) {
         console.error('Error adding provider:', error);
@@ -294,7 +231,7 @@ async function saveNewAdmin() {
             closeAddAdminModal();
             await loadAllUsers();
         } else {
-            showMessage('Error: ' + data.message, 'error');
+            showMessage('Error: ' + (data.message || data.error), 'error');
         }
     } catch (error) {
         console.error('Error adding administrator:', error);
